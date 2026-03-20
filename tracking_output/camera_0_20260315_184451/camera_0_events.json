@@ -1,0 +1,40 @@
+{
+  "saved_at": "2026-03-15 18:46:12",
+  "source": "camera_0",
+  "people": [
+    {
+      "track_id": 1,
+      "first_seen_frame": 3,
+      "first_seen_time_sec": 0.41,
+      "last_seen_frame": 1350,
+      "last_seen_time_sec": 80.62,
+      "frames_visible": 766,
+      "distance_px": 4782.88,
+      "trajectory_points": 405,
+      "route_image": "C:\\Users\\Egor\\OneDrive\\Документы\\database\\tracking_output\\camera_0_20260315_184451\\track_001_route.png"
+    },
+    {
+      "track_id": 2,
+      "first_seen_frame": 630,
+      "first_seen_time_sec": 37.85,
+      "last_seen_frame": 695,
+      "last_seen_time_sec": 48.13,
+      "frames_visible": 66,
+      "distance_px": 246.71,
+      "trajectory_points": 29,
+      "route_image": "C:\\Users\\Egor\\OneDrive\\Документы\\database\\tracking_output\\camera_0_20260315_184451\\track_002_route.png"
+    },
+    {
+      "track_id": 3,
+      "first_seen_frame": 711,
+      "first_seen_time_sec": 49.65,
+      "last_seen_frame": 773,
+      "last_seen_time_sec": 53.5,
+      "frames_visible": 63,
+      "distance_px": 403.55,
+      "trajectory_points": 47,
+      "route_image": "C:\\Users\\Egor\\OneDrive\\Документы\\database\\tracking_output\\camera_0_20260315_184451\\track_003_route.png"
+    }
+  ],
+  "session_duration_sec": 81.34
+}

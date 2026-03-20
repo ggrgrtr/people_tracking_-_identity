@@ -1,0 +1,21 @@
+{
+  "saved_at": "2026-03-20 15:44:12",
+  "project": "identity_gallery_tracking",
+  "identities": [
+    {
+      "identity_id": 1,
+      "first_seen_frame": 12,
+      "first_seen_time_sec": 1.02,
+      "last_seen_frame": 652,
+      "last_seen_time_sec": 35.67,
+      "observations": 641,
+      "tracklets_count": 1,
+      "distance_px": 1524.42,
+      "trajectory_points": 193,
+      "has_face_gallery": false,
+      "has_reid_gallery": true,
+      "route_image": "C:\\Users\\Egor\\OneDrive\\Документы\\database\\identity_tracking_output\\camera_0_20260320_154336\\identity_001_route.png"
+    }
+  ],
+  "session_duration_sec": 36.36
+}

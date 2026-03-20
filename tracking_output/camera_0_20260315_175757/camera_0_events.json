@@ -1,0 +1,18 @@
+{
+  "saved_at": "2026-03-15 17:58:23",
+  "source": "camera_0",
+  "people": [
+    {
+      "track_id": 1,
+      "first_seen_frame": 3,
+      "first_seen_time_sec": 0.38,
+      "last_seen_frame": 375,
+      "last_seen_time_sec": 25.18,
+      "frames_visible": 373,
+      "distance_px": 2125.53,
+      "trajectory_points": 215,
+      "route_image": "C:\\Users\\Egor\\OneDrive\\Документы\\database\\tracking_output\\camera_0_20260315_175757\\track_001_route.png"
+    }
+  ],
+  "session_duration_sec": 25.95
+}

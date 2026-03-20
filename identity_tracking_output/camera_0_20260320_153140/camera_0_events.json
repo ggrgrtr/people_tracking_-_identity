@@ -1,0 +1,35 @@
+{
+  "saved_at": "2026-03-20 15:33:12",
+  "project": "identity_gallery_tracking",
+  "identities": [
+    {
+      "identity_id": 1,
+      "first_seen_frame": 9,
+      "first_seen_time_sec": 1.24,
+      "last_seen_frame": 780,
+      "last_seen_time_sec": 91.13,
+      "observations": 607,
+      "tracklets_count": 3,
+      "distance_px": 5425.37,
+      "trajectory_points": 324,
+      "has_face_gallery": false,
+      "has_reid_gallery": true,
+      "route_image": "C:\\Users\\Egor\\OneDrive\\Документы\\database\\identity_tracking_output\\camera_0_20260320_153140\\identity_001_route.png"
+    },
+    {
+      "identity_id": 2,
+      "first_seen_frame": 405,
+      "first_seen_time_sec": 36.64,
+      "last_seen_frame": 780,
+      "last_seen_time_sec": 91.13,
+      "observations": 364,
+      "tracklets_count": 1,
+      "distance_px": 1762.94,
+      "trajectory_points": 162,
+      "has_face_gallery": false,
+      "has_reid_gallery": true,
+      "route_image": "C:\\Users\\Egor\\OneDrive\\Документы\\database\\identity_tracking_output\\camera_0_20260320_153140\\identity_002_route.png"
+    }
+  ],
+  "session_duration_sec": 91.9
+}
