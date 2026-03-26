@@ -8,6 +8,9 @@ def draw_tracklet(frame, tracklet):
     color_key = tracklet.person_id if tracklet.person_id is not None else tracklet.id
     color = track_color(color_key)
 
+    # Подпись показывает стадию жизненного цикла трека:
+    # сначала это "сырой" tracklet, затем confirmed/pending-кандидат,
+    # и только после привязки к gallery он становится устойчивым ID человека.
     label = f"ID {tracklet.person_id}" if tracklet.person_id is not None else f"Track {tracklet.id}"
     if tracklet.person_id is None and tracklet.is_confirmed(tracklet.min_confirmed_hits):
         label += " pending"
@@ -26,6 +29,8 @@ def draw_tracklet(frame, tracklet):
     )
 
     points = list(tracklet.path)
+    # Маршрут рисуем как полилинию, а последним сегментом добавляем стрелку,
+    # чтобы на статичном кадре была видна не только траектория, но и направление движения.
     for index in range(1, len(points)):
         cv2.line(frame, points[index - 1], points[index], color, 2)
     if len(points) >= 2:

@@ -109,8 +109,14 @@ class Tracklet:
         self.feature_updates = 1 if self.feature is not None else 0
         self.face_updates = 1 if self.face_feature is not None else 0
         self.seen_frames = 1
+        self.observed_in_current_frame = True
 
     def _create_kalman(self, bbox):
+        # Учебная памятка:
+        # состояние Kalman здесь имеет вид
+        # [cx, cy, w, h, vx, vy, vw, vh]
+        # где первые 4 значения - положение и размер bbox,
+        # а последние 4 - их скорости.
         kalman = cv2.KalmanFilter(8, 4)
         kalman.transitionMatrix = np.array(
             [
@@ -125,6 +131,8 @@ class Tracklet:
             ],
             dtype=np.float32,
         )
+        # Мы реально "измеряем" только центр и размер рамки.
+        # Скорости напрямую не наблюдаем, Kalman выводит их сам из последовательности кадров.
         kalman.measurementMatrix = np.array(
             [
                 [1, 0, 0, 0, 0, 0, 0, 0],
@@ -134,6 +142,8 @@ class Tracklet:
             ],
             dtype=np.float32,
         )
+        # processNoiseCov отвечает за то, насколько модель движения может "сомневаться" в своем прогнозе.
+        # measurementNoiseCov отвечает за доверие к новому измерению от детектора.
         kalman.processNoiseCov = np.eye(8, dtype=np.float32) * 0.015
         kalman.measurementNoiseCov = np.eye(4, dtype=np.float32) * 0.22
         kalman.errorCovPost = np.eye(8, dtype=np.float32)
@@ -153,6 +163,8 @@ class Tracklet:
     def predict(self, frame_shape):
         prediction = self.kalman.predict().reshape(-1)
         self.age += 1
+        # Prediction продолжает жизнь tracklet между detect-pass, но не считается новым наблюдением.
+        self.observed_in_current_frame = False
         self.predicted_bbox = self._state_to_bbox(prediction, frame_shape)
         self.smooth_bbox = smooth_bbox(
             self.smooth_bbox,
@@ -195,15 +207,21 @@ class Tracklet:
         self.hits += 1
         self.seen_frames += 1
         self.missed_detections = 0
+        # Только после реального измерения из детектора tracklet считается наблюденным в текущем кадре.
+        self.observed_in_current_frame = True
         self._update_appearance(feature, color_hist, face_feature)
         self._update_shape(frame_shape)
 
     def mark_missed(self):
         self.missed_detections += 1
+        self.observed_in_current_frame = False
 
     def is_confirmed(self, min_hits=None):
         min_hits = self.min_confirmed_hits if min_hits is None else min_hits
         return self.hits >= min_hits
+
+    def was_observed(self):
+        return self.observed_in_current_frame
 
     def _update_appearance(self, feature, color_hist, face_feature):
         if feature is not None:
@@ -214,6 +232,7 @@ class Tracklet:
             if self.identity_feature is None:
                 self.identity_feature = feature.copy()
             else:
+                # Identity-признак обновляется более инерционно, чем локальный tracklet feature.
                 self.identity_feature = blend_feature(
                     self.identity_feature,
                     feature,
@@ -346,6 +365,11 @@ class Tracklet:
 
 
 def _active_match_cost(track, det_box, feature, color_hist, face_feature, config):
+    # Учебная идея функции:
+    # мы не пытаемся матчинить tracklet и detection по одному признаку.
+    # Вместо этого собираем "стоимость несовпадения" из геометрии, движения и внешности.
+    # Чем выше итоговый score, тем лучше совпадение. В конце он переводится в cost через 10 - score,
+    # потому что Hungarian в этой реализации минимизирует стоимость.
     ref_box = track.predicted_bbox
     iou = compute_iou(ref_box, det_box)
     dist = center_distance(ref_box, det_box)
@@ -358,6 +382,7 @@ def _active_match_cost(track, det_box, feature, color_hist, face_feature, config
     motion_ok = iou >= 0.18 or dist <= allowed_dist * 0.30
 
     if face_feature is not None and face_score >= config.active_match_face_threshold:
+        # Лицо - самый сильный сигнал, поэтому при хорошем face match оно доминирует в стоимости.
         score = (
             max(0.0, face_score) * 3.8
             + iou * 1.6
@@ -378,6 +403,10 @@ def _active_match_cost(track, det_box, feature, color_hist, face_feature, config
     ):
         return None
 
+    # Если лица нет или оно слабое, локальный матч строится на смеси:
+    # 1. геометрии рамки,
+    # 2. правдоподобия движения,
+    # 3. similarity внешнего вида.
     score = (
         iou * 2.25
         + max(0.0, 1.0 - dist / allowed_dist) * 0.95
@@ -392,6 +421,8 @@ def _associate_tracklets(tracklets, detections, features, color_histograms, face
     if not tracklets or not detections:
         return [], list(range(len(tracklets))), list(range(len(detections)))
 
+    # Hungarian assignment получает единую матрицу стоимости и выбирает глобально согласованное сопоставление.
+    # Это лучше жадного подхода, потому что жадный матч может "украсть" хорошую detection у более подходящего tracklet.
     cost_matrix = np.full((len(tracklets), len(detections)), UNMATCHED_COST, dtype=np.float64)
 
     for track_index, track in enumerate(tracklets):
@@ -414,6 +445,8 @@ def _associate_tracklets(tracklets, detections, features, color_histograms, face
     matched_tracks = set()
     matched_detections = set()
 
+    # Hungarian может вернуть пары даже для плохих ячеек.
+    # Поэтому после него обязательно фильтруем по порогу UNMATCHED_COST.
     for track_index, det_index in assignments:
         if cost_matrix[track_index, det_index] >= UNMATCHED_COST:
             continue
@@ -488,24 +521,28 @@ class TrackletTracker:
 
     def _deduplicate_active_tracklets(self):
         if len(self.active_tracklets) <= 1:
-            return
+            return []
 
         ordered_tracklets = sorted(self.active_tracklets, key=self._track_priority, reverse=True)
         deduplicated = []
+        removed = []
         for candidate in ordered_tracklets:
             merged = False
             for kept in deduplicated:
                 if self._tracks_are_duplicate(kept, candidate):
+                    # Сохраняем удаленный дубликат как finished tracklet, чтобы не потерять финализацию статистики.
                     merged = True
+                    removed.append(candidate)
                     break
             if not merged:
                 deduplicated.append(candidate)
         self.active_tracklets = deduplicated
+        return removed
 
     def predict_only(self, frame_shape):
         for track in self.active_tracklets:
             track.predict(frame_shape)
-        self._deduplicate_active_tracklets()
+        return self._deduplicate_active_tracklets()
 
     def reid_candidate_detection_indices(self, detections, frame_shape):
         if not detections:
@@ -514,6 +551,7 @@ class TrackletTracker:
         if not self.active_tracklets:
             return list(range(len(detections)))
 
+        # Кандидаты для дорогого ReID - это новые, сомнительные или identity-критичные детекции.
         candidate_indices = set()
         for det_index, det_box in enumerate(detections):
             best_track = None
@@ -553,6 +591,9 @@ class TrackletTracker:
         return sorted(candidate_indices)
 
     def update(self, detections, features, color_histograms, face_features, frame_shape):
+        # Сначала все текущие tracklet живут шагом prediction.
+        # Это делает обработку симметричной: каждый трек сначала прогнозируется вперед,
+        # а затем, если нашлась подходящая detection, корректируется измерением.
         for track in self.active_tracklets:
             track.predict(frame_shape)
 
@@ -602,7 +643,7 @@ class TrackletTracker:
             self.active_tracklets.append(new_track)
             self.next_id += 1
 
-        self._deduplicate_active_tracklets()
+        finished_tracklets.extend(self._deduplicate_active_tracklets())
         return finished_tracklets
 
     def finish_all(self):

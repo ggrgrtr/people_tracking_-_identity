@@ -268,6 +268,7 @@ class AppearanceEncoder:
             hsv[upper_start:upper_end, :],
             hsv[lower_start:lower_end, :],
         ]
+        # Цвет описывается отдельно по всему силуэту, верху и низу, чтобы лучше различать одежду.
         descriptors = []
 
         for section in sections:
@@ -333,6 +334,7 @@ class AppearanceEncoder:
             if crop is None:
                 continue
 
+            # Цветовой дескриптор считаем почти всегда: он дешевле и помогает даже без глубокого ReID.
             color_histograms[index] = self._build_color_descriptor(crop)
             if include_features and index in selected_feature_indices:
                 tensors.append(self._preprocess_crop(crop))

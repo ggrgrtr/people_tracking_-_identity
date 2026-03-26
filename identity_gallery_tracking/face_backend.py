@@ -68,6 +68,7 @@ class OptionalFaceBackend:
             return
 
         try:
+            # Face backend полностью опционален: отсутствие моделей не должно ломать основной pipeline.
             self.detector = detector_cls.create(
                 str(detector_model),
                 "",
@@ -108,6 +109,7 @@ class OptionalFaceBackend:
         for face in faces:
             width = max(1.0, float(face[2]))
             height = max(1.0, float(face[3]))
+            # Выбираем не просто самое уверенное лицо, а лучшее по сочетанию confidence и размера.
             score = float(face[-1]) * width * height
             if score > best_score:
                 best_score = score
@@ -118,6 +120,11 @@ class OptionalFaceBackend:
         if not self.enabled:
             return None
 
+        # Учебная последовательность face backend:
+        # 1. вырезаем человека по person bbox,
+        # 2. ищем лицо внутри этого crop,
+        # 3. выравниваем лицо по опорным точкам,
+        # 4. получаем embedding для identity matching.
         crop = self._crop_person(frame, bbox)
         if crop is None:
             return None
@@ -137,6 +144,7 @@ class OptionalFaceBackend:
             return None
 
         try:
+            # alignCrop нужен затем, чтобы face embedding сравнивал лица в более канонической позе.
             aligned_face = self.recognizer.alignCrop(crop, face)
             feature = self.recognizer.feature(aligned_face)
         except Exception:
@@ -161,6 +169,8 @@ class OptionalFaceBackend:
 
         features = [None] * len(boxes)
         for index, bbox in enumerate(boxes):
+            # Как и в ReID, face признаки считаем только для выбранных кандидатов,
+            # чтобы не тратить время на каждую рамку сцены.
             if selected_indices is not None and index not in selected_indices:
                 continue
             features[index] = self.extract(frame, bbox)

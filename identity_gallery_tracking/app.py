@@ -5,12 +5,14 @@ import argparse
 # для построения и управления путями
 from pathlib import Path
 
+# многопоточный ввод
 import threading
 import time
 
 import cv2
 import torch
 
+# из первого экземпляра программы берем детектор, определение признаков и сборщик
 from people_tracking.detector import PersonDetector
 from people_tracking.reid import AppearanceEncoder
 from people_tracking.utils import RateMeter, build_output_paths, is_plausible_fps, resolve_source
@@ -22,12 +24,14 @@ from .renderer import draw_dashboard, draw_tracklet
 from .tracklets import TrackletTracker
 
 
+# для 1 объекта мониторинга камеры
 class ThreadedCameraCapture:
     def __init__(self, capture):
         self.capture = capture
         self.condition = threading.Condition()
         self.stopped = False
         self.read_failed = False
+        self.max_consecutive_failures = 3
         self.latest_frame = None
         self.latest_timestamp = None
         self.latest_seq = 0
@@ -37,25 +41,38 @@ class ThreadedCameraCapture:
     def start(self):
         if self.thread is not None:
             return self
+        if not hasattr(threading, "_start_new_thread"):
+            return None
         self.thread = threading.Thread(target=self._reader, daemon=True)
-        self.thread.start()
+        try:
+            self.thread.start()
+        except Exception:
+            self.thread = None
+            return None
         return self
 
     def _reader(self):
+        consecutive_failures = 0
         while not self.stopped:
             ok, frame = self.capture.read()
             timestamp = time.perf_counter()
             with self.condition:
                 if not ok:
-                    self.read_failed = True
-                    self.stopped = True
+                    consecutive_failures += 1
+                    if consecutive_failures >= self.max_consecutive_failures:
+                        self.read_failed = True
+                        self.stopped = True
                     self.condition.notify_all()
-                    return
-
-                self.latest_frame = frame
-                self.latest_timestamp = timestamp
-                self.latest_seq += 1
-                self.condition.notify_all()
+                    if self.read_failed:
+                        return
+                else:
+                    consecutive_failures = 0
+                    self.latest_frame = frame
+                    self.latest_timestamp = timestamp
+                    self.latest_seq += 1
+                    self.condition.notify_all()
+            if not ok:
+                time.sleep(0.05)
 
     def read(self, timeout=1.0):
         deadline = time.perf_counter() + max(0.01, float(timeout))
@@ -70,11 +87,12 @@ class ThreadedCameraCapture:
                     break
                 self.condition.wait(timeout=min(0.05, remaining))
 
-            if self.latest_seq == self.last_consumed_seq:
-                return False, None, None
-
-            self.last_consumed_seq = self.latest_seq
-            return True, self.latest_frame, self.latest_timestamp
+            if self.latest_seq != self.last_consumed_seq:
+                self.last_consumed_seq = self.latest_seq
+                return "frame", self.latest_frame, self.latest_timestamp
+            if self.read_failed or self.stopped:
+                return "eof", None, None
+            return "timeout", None, None
 
     def stop(self):
         self.stopped = True
@@ -128,7 +146,11 @@ def main():
         return
     threaded_capture = None
     if is_live_source and config.threaded_camera_capture:
+        # Для live-источника пытаемся отделить чтение камеры от тяжелой обработки кадров.
         threaded_capture = ThreadedCameraCapture(cap).start()
+        if threaded_capture is None:
+            # Если среда не умеет поднимать потоки, программа должна деградировать мягко, а не падать.
+            print("Warning: threaded camera capture is unavailable, using synchronous capture.")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cuda":
@@ -170,8 +192,10 @@ def main():
 
     while True:
         if threaded_capture is not None:
-            ok, frame, read_complete_time = threaded_capture.read(timeout=1.0)
-            if not ok:
+            read_status, frame, read_complete_time = threaded_capture.read(timeout=1.0)
+            if read_status == "timeout":
+                continue
+            if read_status != "frame":
                 break
             if read_complete_time is None:
                 read_complete_time = time.perf_counter()
@@ -206,6 +230,7 @@ def main():
         elapsed_seconds = time.time() - session_start
 
         has_active_tracklets = bool(tracker.active_tracklets)
+        # YOLO запускается разреженно: локальное движение между detect-pass ведет Kalman tracker.
         detect_interval = config.yolo_interval if has_active_tracklets else config.empty_scene_yolo_interval
         should_detect = frame_id == 1 or frame_id % max(1, detect_interval) == 0
 
@@ -213,6 +238,7 @@ def main():
         if should_detect:
             detect_pass_count += 1
             detections = detector.detect(frame)
+            # Дорогой ReID считаем не для всех рамок подряд, а только для тех, где он реально нужен.
             candidate_feature_indices = tracker.reid_candidate_detection_indices(
                 detections,
                 frame.shape,
@@ -260,12 +286,14 @@ def main():
                 frame.shape,
             )
         else:
-            tracker.predict_only(frame.shape)
+            finished_tracklets = tracker.predict_only(frame.shape)
 
         identity_manager.finalize_tracklets(finished_tracklets)
         visible_tracklets = tracker.visible_tracklets()
+        # В identity-логику передаем только реально наблюденные tracklet, а не prediction-only кадры.
+        observed_tracklets = [track for track in visible_tracklets if track.was_observed()]
         identity_manager.observe_tracklets(
-            visible_tracklets,
+            observed_tracklets,
             frame_id,
             elapsed_seconds,
             frame.shape,
@@ -330,3 +358,7 @@ def main():
     print(f"Saved session outputs to: {output_paths['session_dir']}")
     if writer is not None:
         print(f"Saved tracked video to: {output_video_path}")
+
+
+if __name__ == "__main__":
+    main()

@@ -16,6 +16,9 @@ from people_tracking.utils import get_center
 
 
 def _shape_descriptor_from_bbox(bbox, frame_shape):
+    # Shape descriptor - это маленький вектор с геометрией человека в кадре.
+    # Он не годится как самостоятельная идентификация,
+    # но хорошо помогает отсеивать явно неподходящих кандидатов.
     frame_h, frame_w = frame_shape[:2]
     _, _, w, h = [int(v) for v in bbox]
     safe_w = max(1.0, float(frame_w))
@@ -53,6 +56,8 @@ class IdentityRecord:
     def __init__(self, identity_id, tracklet, frame_id, elapsed_seconds, frame_shape, config):
         self.id = identity_id
         self.config = config
+        # В identity кладем уже не "сырое одно наблюдение", а стартовую галерею признаков,
+        # которая дальше будет усредняться и пополняться банками примеров.
         self.feature = tracklet.identity_feature.copy() if tracklet.identity_feature is not None else None
         self.color_hist = (
             tracklet.identity_color_hist.copy() if tracklet.identity_color_hist is not None else None
@@ -92,7 +97,11 @@ class IdentityRecord:
         elapsed_seconds,
         frame_shape,
         update_gallery=True,
+        observed=True,
     ):
+        if not observed:
+            return
+
         self.last_seen_frame = frame_id
         self.last_seen_time_sec = round(elapsed_seconds, 2)
         self.observations += 1
@@ -235,6 +244,10 @@ class IdentityManager:
         self.last_frame_shape = None
 
     def _match_score(self, identity, tracklet, frame_shape, frame_id):
+        # Учебная идея:
+        # у identity нет одного "магического" признака.
+        # Итоговая уверенность собирается из нескольких сигналов:
+        # лицо, внешний вид, цвет, форма и временная давность последнего наблюдения.
         face_score = identity.best_face_similarity(tracklet.identity_face_feature)
         appearance = identity.best_feature_similarity(tracklet.identity_feature)
         color_score = identity.best_color_similarity(tracklet.identity_color_hist)
@@ -246,6 +259,7 @@ class IdentityManager:
             and identity.face_feature is not None
             and face_score >= self.config.identity_face_threshold
         ):
+            # Если лицо совпало достаточно уверенно, appearance/color/shape становятся только уточняющими сигналами.
             return (
                 face_score * 5.4
                 + max(0.0, appearance) * 1.3
@@ -264,6 +278,8 @@ class IdentityManager:
         ):
             return None
 
+        # Без лица appearance становится главным сигналом,
+        # а color и shape помогают не перепутать похожих по embedding кандидатов.
         return (
             max(0.0, appearance) * 4.8
             + max(0.0, color_score) * 0.55
@@ -285,6 +301,10 @@ class IdentityManager:
         return identity_id
 
     def _match_identity(self, tracklet, occupied_identity_ids, frame_shape, frame_id):
+        # Здесь формируется список всех identity, которые вообще имеют право претендовать на tracklet.
+        # Затем выбирается лучший кандидат, но только если он:
+        # 1. достаточно уверенный сам по себе;
+        # 2. заметно лучше второго по качеству кандидата.
         candidates = []
         for identity_id, identity in self.identities.items():
             if identity_id in occupied_identity_ids:
@@ -301,6 +321,7 @@ class IdentityManager:
         second_score = candidates[1][0] if len(candidates) > 1 else -1.0
         if best_score < 3.10:
             return None
+        # Если два кандидата слишком близки, безопаснее не матчинить и создать новую identity.
         if second_score > 0.0 and best_score - second_score < self.config.identity_match_margin:
             return None
         return best_identity_id
@@ -319,9 +340,14 @@ class IdentityManager:
         for track in tracklets:
             if not track.is_confirmed():
                 continue
+            # Prediction-only кадры не должны искусственно продлевать жизнь identity в журнале наблюдений.
+            if not track.was_observed():
+                continue
 
             created_identity = False
             if track.person_id is None and track.identity_ready():
+                # Identity присваивается только зрелым tracklet:
+                # они уже пережили несколько кадров и накопили достаточно признаков.
                 identity_id = self._match_identity(
                     track,
                     occupied_identity_ids,
@@ -348,6 +374,7 @@ class IdentityManager:
                 elapsed_seconds,
                 frame_shape,
                 update_gallery=update_gallery,
+                observed=track.was_observed(),
             )
 
     def finalize_tracklets(self, tracklets):
