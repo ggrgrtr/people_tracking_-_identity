@@ -1,0 +1,27 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test and tool caches
+.pytest_cache/
+.mypy_cache/
+
+# IDE files
+.vscode/
+.idea/
+
+# Runtime artifacts
+identity_tracking_output/
+tracking_output/
+smoke_test_output/
+smoke_test_input.mp4
+
+# OS-specific noise
+Thumbs.db
+.DS_Store
