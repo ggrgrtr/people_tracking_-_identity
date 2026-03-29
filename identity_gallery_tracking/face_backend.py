@@ -45,6 +45,8 @@ class OptionalFaceBackend:
         if detector_cls is None or recognizer_cls is None:
             return
 
+
+        # 2 модели
         detector_model = _resolve_optional_model(
             base_dir,
             config.face_detector_model,
@@ -88,6 +90,7 @@ class OptionalFaceBackend:
             self.recognizer = None
             self.description = f"disabled (failed to initialize face models: {exc})"
 
+    # вырезка области человека по боксу
     def _crop_person(self, frame, bbox):
         frame_h, frame_w = frame.shape[:2]
         x, y, w, h = [int(v) for v in bbox]
@@ -117,14 +120,14 @@ class OptionalFaceBackend:
         return best_face
 
     def extract(self, frame, bbox):
+        # включен ли бек
         if not self.enabled:
             return None
 
-        # Учебная последовательность face backend:
-        # 1. вырезаем человека по person bbox,
-        # 2. ищем лицо внутри этого crop,
-        # 3. выравниваем лицо по опорным точкам,
-        # 4. получаем embedding для identity matching.
+        # вырезаем человека по person bbox
+        # ищем лицо внутри  crop
+        # выравниваем лицо по опорным точкам
+        # получаем embedding для identity matching
         crop = self._crop_person(frame, bbox)
         if crop is None:
             return None
@@ -144,12 +147,14 @@ class OptionalFaceBackend:
             return None
 
         try:
-            # alignCrop нужен затем, чтобы face embedding сравнивал лица в более канонической позе.
+            # alignCrop для выравнивания face embedding по стагдарту
             aligned_face = self.recognizer.alignCrop(crop, face)
+            # берем эмбендинг
             feature = self.recognizer.feature(aligned_face)
         except Exception:
             return None
 
+        # создаем вектор признаков и нормируем его для последующего сравнения косинусной метрикой
         feature = np.asarray(feature, dtype=np.float32).reshape(-1)
         return normalize_feature(feature)
 
@@ -169,8 +174,8 @@ class OptionalFaceBackend:
 
         features = [None] * len(boxes)
         for index, bbox in enumerate(boxes):
-            # Как и в ReID, face признаки считаем только для выбранных кандидатов,
-            # чтобы не тратить время на каждую рамку сцены.
+            #  признаки лица считаем только для выбранных кандидатов
+            # чтобы не тратить время на каждую рамку сцены
             if selected_indices is not None and index not in selected_indices:
                 continue
             features[index] = self.extract(frame, bbox)

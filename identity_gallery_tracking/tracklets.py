@@ -60,6 +60,9 @@ def _blend_shape(old_shape, new_shape, momentum=0.92):
     return (momentum * old_shape + (1.0 - momentum) * new_shape).astype(np.float32)
 
 
+# мат фильтр Калмана
+
+
 class Tracklet:
     def __init__(
         self,
@@ -112,12 +115,12 @@ class Tracklet:
         self.observed_in_current_frame = True
 
     def _create_kalman(self, bbox):
-        # Учебная памятка:
         # состояние Kalman здесь имеет вид
         # [cx, cy, w, h, vx, vy, vw, vh]
-        # где первые 4 значения - положение и размер bbox,
-        # а последние 4 - их скорости.
+        #  первые 4 значения - положение и размер bbox
+        # а последние 4 - их скорости
         kalman = cv2.KalmanFilter(8, 4)
+        #  как состояние меняется во времени
         kalman.transitionMatrix = np.array(
             [
                 [1, 0, 0, 0, 1, 0, 0, 0],
@@ -131,8 +134,8 @@ class Tracklet:
             ],
             dtype=np.float32,
         )
-        # Мы реально "измеряем" только центр и размер рамки.
-        # Скорости напрямую не наблюдаем, Kalman выводит их сам из последовательности кадров.
+        # реально измеряем только центр и размер рамки
+        # скорости напрямую не наблюдаем, Kalman выводит их сам из последовательности кадров
         kalman.measurementMatrix = np.array(
             [
                 [1, 0, 0, 0, 0, 0, 0, 0],
@@ -142,10 +145,12 @@ class Tracklet:
             ],
             dtype=np.float32,
         )
-        # processNoiseCov отвечает за то, насколько модель движения может "сомневаться" в своем прогнозе.
-        # measurementNoiseCov отвечает за доверие к новому измерению от детектора.
+        # processNoiseCov отвечает за то, насколько модель движения может сомневаться в своем прогнозе
         kalman.processNoiseCov = np.eye(8, dtype=np.float32) * 0.015
+        # measurementNoiseCov отвечает за доверие к новому измерению от детектора
+        #  насколько шумные измерения
         kalman.measurementNoiseCov = np.eye(4, dtype=np.float32) * 0.22
+        # начальная неопределенность
         kalman.errorCovPost = np.eye(8, dtype=np.float32)
 
         cx, cy = get_center(bbox)

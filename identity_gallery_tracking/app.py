@@ -134,33 +134,62 @@ def create_writer(path, fps, frame_shape):
 
 
 def main():
+
+    # парсим аргументы командной строки
+#     --source
+# --save-output
+# --output
+# --no-display
     args = parse_args()
+
+    # создание объекта класса конфигурации приложения. все параметры и тд
     config = AppConfig()
+    # создание identity_tracking_output, если не существует
     config.output_dir.mkdir(parents=True, exist_ok=True)
 
+    # путь к изоображению и подпись источника для отображения логов и имен файлов
     source, source_label = resolve_source(args.source)
+    # проверка, является ли источник живой камерой (целым числом) или видеофайлом
     is_live_source = isinstance(source, int)
+
+    # открытие виедоизображения с CV2, применение параметров конфига
     cap = open_capture(source, config)
+
+
     if not cap.isOpened():
         print("Failed to open source.")
         return
+    
+    # потоковый захват для живых камер None
     threaded_capture = None
+
+
     if is_live_source and config.threaded_camera_capture:
-        # Для live-источника пытаемся отделить чтение камеры от тяжелой обработки кадров.
+        # Для live-источника пытаемся отделить чтение камеры от тяжелой обработки кадров
         threaded_capture = ThreadedCameraCapture(cap).start()
         if threaded_capture is None:
-            # Если среда не умеет поднимать потоки, программа должна деградировать мягко, а не падать.
+            # Если среда не умеет поднимать потоки продолжаем в невыгодгом синхронном режиме 
             print("Warning: threaded camera capture is unavailable, using synchronous capture.")
 
+    # переходим на GPU, если  есть. для ускорения детекции и ReID
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cuda":
+        # разрешает библиотеке cuDNN подбирать наиболее быстрый алгоритм для сеток
         torch.backends.cudnn.benchmark = True
 
+    # коренной путь для загрузки моделей, независимость от места загрузки
     base_dir = Path(__file__).resolve().parents[1]
+    # детектор людей с self.model = YOLO
     detector = PersonDetector(config, base_dir, device)
+    # извдечение признаков с model = ResNet50ReIDBackbone
     encoder = AppearanceEncoder(config, device, base_dir)
+
+    
+    # face embedding для дополнительного распознавания лиц, полностью опциональный бек
+    # дополняет обычный ReID 
     face_backend = OptionalFaceBackend(config, base_dir)
     tracker = TrackletTracker(config)
+    # записывает и считывает  длительные треки, identity-логи, управляет долговременной памятью
     identity_manager = IdentityManager(config)
 
     output_paths = build_output_paths(config.output_dir, source_label)
@@ -180,6 +209,7 @@ def main():
     declared_source_fps = cap.get(cv2.CAP_PROP_FPS)
     metadata_source_fps = declared_source_fps if is_plausible_fps(declared_source_fps) else 0.0
 
+    # to terminal
     print(f"Device: {device}")
     print(f"Source: {source_label}")
     print(f"Session folder: {output_paths['session_dir']}")
@@ -230,7 +260,7 @@ def main():
         elapsed_seconds = time.time() - session_start
 
         has_active_tracklets = bool(tracker.active_tracklets)
-        # YOLO запускается разреженно: локальное движение между detect-pass ведет Kalman tracker.
+        # YOLO запускается разреженно: локальное движение между detect-pass ведет Kalman tracker
         detect_interval = config.yolo_interval if has_active_tracklets else config.empty_scene_yolo_interval
         should_detect = frame_id == 1 or frame_id % max(1, detect_interval) == 0
 
@@ -238,7 +268,7 @@ def main():
         if should_detect:
             detect_pass_count += 1
             detections = detector.detect(frame)
-            # Дорогой ReID считаем не для всех рамок подряд, а только для тех, где он реально нужен.
+            # дорогой ReID считаем не для всех рамок подряд, а только для тех, где он реально нужен.
             candidate_feature_indices = tracker.reid_candidate_detection_indices(
                 detections,
                 frame.shape,

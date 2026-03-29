@@ -1,4 +1,5 @@
 import cv2
+# ПОИСК ЛЮДЕЙ В КАДРЕ
 from ultralytics import YOLO
 
 try:
@@ -24,6 +25,7 @@ class PersonDetector:
         if ultralytics_hub_callbacks is not None and hasattr(ultralytics_hub_callbacks, "events"):
             # Отключаем необязательные telemetry callbacks, чтобы predict не падал в ограниченных средах.
             ultralytics_hub_callbacks.events.enabled = False
+        # yolov8n.pt  легкая и быстрая модель для детекции людей
         self.model = YOLO(resolve_yolo_weights(base_dir))
 
         try:
@@ -31,6 +33,7 @@ class PersonDetector:
         except Exception:
             pass
 
+    # подавление шумовых детекций
     def _suppress_duplicate_detections(self, detections):
         if len(detections) <= 1:
             return [bbox for bbox, _ in detections]
@@ -47,7 +50,9 @@ class PersonDetector:
             duplicate = False
 
             for kept_bbox, _ in filtered:
+                # если рамки слишком сильно пересекаются, новая считается дублем
                 iou = compute_iou(kept_bbox, bbox)
+                # если одна рамка почти вложена в другую и ее центр лежит внутри уже оставленной рамки, это тоже считается дублем
                 nested = intersection_over_smaller(kept_bbox, bbox)
 
                 if iou >= self.config.detector_duplicate_iou:
@@ -68,11 +73,24 @@ class PersonDetector:
 
     def detect(self, frame):
         frame_h, frame_w = frame.shape[:2]
-        # Детекция идет по уменьшенному кадру: это дешевле, а координаты потом масштабируются обратно.
+        # детекция идет по уменьшенному кадру: это дешевле, а координаты потом масштабируются обратно
         scaled_w = max(64, int(frame_w * self.config.yolo_scale))
         scaled_h = max(64, int(frame_h * self.config.yolo_scale))
         scaled = cv2.resize(frame, (scaled_w, scaled_h))
 
+        # YOLO возвращает несколько кандидатов на детекцию людей с разными координатами и confidence
+        # создаются боксы и их confidence
+        # потом сравниваются корординаты и confidence
+        # для выявления ложного срабатывания
+        # возвращаются боксы отдельных людей без дублей
+
+
+
+        # кадр подается в модель
+        # scaled - уменьшенный кадр
+        # imgsz - размер входа для YOLO
+        # conf - минимальный порог уверенности
+        # classes=[0]  только класс person
         results = self.model(
             scaled,
             imgsz=self.config.yolo_imgsz,

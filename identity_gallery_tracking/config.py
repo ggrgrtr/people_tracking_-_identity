@@ -8,6 +8,7 @@ class AppConfig:
     camera_width: int = 640
     camera_height: int = 360
     mirror_camera: bool = True
+    # многопоточный захват камеры для повысшения производительности
     threaded_camera_capture: bool = True
 
     # Параметры детекции: как часто запускать YOLO и насколько агрессивно сжимать кадр.
