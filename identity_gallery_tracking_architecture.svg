@@ -1,0 +1,262 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1180" viewBox="0 0 1800 1180" role="img" aria-labelledby="title desc">
+  <title id="title">Identity Gallery Tracking Architecture</title>
+  <desc id="desc">Colorful flowchart of the identity_gallery_tracking program architecture and runtime pipeline.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f4fbff" />
+      <stop offset="50%" stop-color="#eef7f2" />
+      <stop offset="100%" stop-color="#fff8ef" />
+    </linearGradient>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#184e77" />
+      <stop offset="100%" stop-color="#1e6091" />
+    </linearGradient>
+    <linearGradient id="orchestrator" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffe082" />
+      <stop offset="100%" stop-color="#ffca28" />
+    </linearGradient>
+    <linearGradient id="vision" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#90caf9" />
+      <stop offset="100%" stop-color="#42a5f5" />
+    </linearGradient>
+    <linearGradient id="tracking" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a5d6a7" />
+      <stop offset="100%" stop-color="#66bb6a" />
+    </linearGradient>
+    <linearGradient id="identity" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ce93d8" />
+      <stop offset="100%" stop-color="#ab47bc" />
+    </linearGradient>
+    <linearGradient id="output" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffab91" />
+      <stop offset="100%" stop-color="#ff7043" />
+    </linearGradient>
+    <linearGradient id="helper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#cfd8dc" />
+      <stop offset="100%" stop-color="#90a4ae" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#8aa1b1" flood-opacity="0.28"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#4c5b66"/>
+    </marker>
+    <style>
+      text {
+        font-family: Segoe UI, Arial, sans-serif;
+        fill: #1f2d3a;
+      }
+      .title {
+        font-size: 34px;
+        font-weight: 700;
+        fill: #ffffff;
+      }
+      .subtitle {
+        font-size: 18px;
+        fill: #dceaf5;
+      }
+      .section-title {
+        font-size: 22px;
+        font-weight: 700;
+        fill: #17324a;
+      }
+      .box-title {
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .box-file {
+        font-size: 16px;
+        font-weight: 600;
+        fill: #25465d;
+      }
+      .box-text {
+        font-size: 15px;
+      }
+      .small {
+        font-size: 14px;
+      }
+      .label {
+        font-size: 15px;
+        font-weight: 600;
+        fill: #334e68;
+      }
+      .outline {
+        stroke: #35536a;
+        stroke-width: 2;
+      }
+      .group {
+        fill: rgba(255,255,255,0.45);
+        stroke: #bfd1de;
+        stroke-width: 2;
+        stroke-dasharray: 8 6;
+      }
+      .arrow {
+        fill: none;
+        stroke: #4c5b66;
+        stroke-width: 3;
+        marker-end: url(#arrow);
+      }
+      .soft-arrow {
+        fill: none;
+        stroke: #70838f;
+        stroke-width: 2.5;
+        marker-end: url(#arrow);
+        stroke-dasharray: 8 6;
+      }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1800" height="1180" fill="url(#bg)" />
+  <rect x="0" y="0" width="1800" height="110" fill="url(#header)" />
+  <text class="title" x="56" y="50">Identity Gallery Tracking</text>
+  <text class="subtitle" x="56" y="82">Архитектура программы: от источника кадра до tracklets, identity и сохранения артефактов</text>
+
+  <rect class="group" x="40" y="140" rx="24" ry="24" width="520" height="960"/>
+  <text class="section-title" x="66" y="182">1. Вход и orchestration</text>
+
+  <rect x="90" y="220" rx="20" ry="20" width="420" height="115" fill="url(#helper)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="112" y="255">Запуск</text>
+  <text class="box-file" x="112" y="282">2.py / identity_gallery_tracking/__main__.py</text>
+  <text class="box-text" x="112" y="308">Запускают main() и передают управление приложению</text>
+
+  <rect x="90" y="385" rx="20" ry="20" width="420" height="220" fill="url(#orchestrator)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="112" y="422">Главный orchestrator</text>
+  <text class="box-file" x="112" y="449">identity_gallery_tracking/app.py</text>
+  <text class="box-text" x="112" y="478">• parse_args()</text>
+  <text class="box-text" x="112" y="502">• open_capture()</text>
+  <text class="box-text" x="112" y="526">• выбор CPU / GPU</text>
+  <text class="box-text" x="112" y="550">• создание detector / encoder / tracker / identity manager</text>
+  <text class="box-text" x="112" y="574">• цикл по кадрам и маршрутизация данных между модулями</text>
+
+  <rect x="90" y="655" rx="20" ry="20" width="420" height="160" fill="url(#helper)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="112" y="692">Конфигурация</text>
+  <text class="box-file" x="112" y="719">identity_gallery_tracking/config.py</text>
+  <text class="box-text" x="112" y="748">YOLO interval, tracking thresholds, ReID settings,</text>
+  <text class="box-text" x="112" y="772">identity thresholds, face backend parameters, output path</text>
+
+  <rect x="90" y="865" rx="20" ry="20" width="420" height="180" fill="url(#helper)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="112" y="902">Источник данных</text>
+  <text class="box-file" x="112" y="929">camera / video file / threaded capture</text>
+  <text class="box-text" x="112" y="958">• ThreadedCameraCapture для live-камеры</text>
+  <text class="box-text" x="112" y="982">• чтение frame + timestamp</text>
+  <text class="box-text" x="112" y="1006">• RateMeter и оценка FPS</text>
+
+  <rect class="group" x="620" y="140" rx="24" ry="24" width="560" height="430"/>
+  <text class="section-title" x="646" y="182">2. Vision layer</text>
+
+  <rect x="670" y="220" rx="20" ry="20" width="460" height="150" fill="url(#vision)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="692" y="257">PersonDetector</text>
+  <text class="box-file" x="692" y="284">people_tracking/detector.py</text>
+  <text class="box-text" x="692" y="313">YOLOv8 person-only detector</text>
+  <text class="box-text" x="692" y="337">масштабирование кадра, classes=[0], confidence filter,</text>
+  <text class="box-text" x="692" y="361">suppress duplicate detections</text>
+
+  <rect x="670" y="400" rx="20" ry="20" width="220" height="130" fill="url(#vision)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="692" y="437">AppearanceEncoder</text>
+  <text class="box-file" x="692" y="464">people_tracking/reid.py</text>
+  <text class="box-text small" x="692" y="491">ReID embedding + color histogram</text>
+  <text class="box-text small" x="692" y="513">ResNet50 + GeM + part-based descriptor</text>
+
+  <rect x="910" y="400" rx="20" ry="20" width="220" height="130" fill="url(#vision)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="932" y="437">OptionalFaceBackend</text>
+  <text class="box-file" x="932" y="464">identity_gallery_tracking/face_backend.py</text>
+  <text class="box-text small" x="932" y="491">YuNet + SFace при наличии ONNX-моделей</text>
+  <text class="box-text small" x="932" y="513">face embedding для усиления matching</text>
+
+  <rect class="group" x="620" y="610" rx="24" ry="24" width="560" height="490"/>
+  <text class="section-title" x="646" y="652">3. Локальная память: tracklets</text>
+
+  <rect x="670" y="690" rx="20" ry="20" width="460" height="220" fill="url(#tracking)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="692" y="727">TrackletTracker</text>
+  <text class="box-file" x="692" y="754">identity_gallery_tracking/tracklets.py</text>
+  <text class="box-text" x="692" y="783">• predict_only(): кадры без detect-pass</text>
+  <text class="box-text" x="692" y="807">• update(): matching detections и active tracklets</text>
+  <text class="box-text" x="692" y="831">• reid_candidate_detection_indices()</text>
+  <text class="box-text" x="692" y="855">• deduplication active tracklets</text>
+  <text class="box-text" x="692" y="879">• finish_all() / visible_tracklets()</text>
+
+  <rect x="670" y="940" rx="20" ry="20" width="220" height="120" fill="url(#tracking)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="692" y="977">Tracklet</text>
+  <text class="box-file" x="692" y="1004">тот же файл</text>
+  <text class="box-text small" x="692" y="1031">Kalman, smooth_bbox, path, feature/color/face banks</text>
+
+  <rect x="910" y="940" rx="20" ry="20" width="220" height="120" fill="url(#helper)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="932" y="977">Assignment + Utils</text>
+  <text class="box-file" x="932" y="1004">people_tracking/assignment.py</text>
+  <text class="box-file" x="932" y="1025">people_tracking/utils.py</text>
+  <text class="box-text small" x="932" y="1048">Hungarian, IoU, distance, bbox smoothing, output helpers</text>
+
+  <rect class="group" x="1240" y="140" rx="24" ry="24" width="520" height="960"/>
+  <text class="section-title" x="1266" y="182">4. Долгая память и результат</text>
+
+  <rect x="1290" y="220" rx="20" ry="20" width="420" height="240" fill="url(#identity)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="1312" y="257">IdentityManager</text>
+  <text class="box-file" x="1312" y="284">identity_gallery_tracking/identity_manager.py</text>
+  <text class="box-text" x="1312" y="313">• observe_tracklets()</text>
+  <text class="box-text" x="1312" y="337">• identity matching по face / appearance / color / shape</text>
+  <text class="box-text" x="1312" y="361">• создание новых identity или переиспользование старых</text>
+  <text class="box-text" x="1312" y="385">• finalize_tracklets()</text>
+  <text class="box-text" x="1312" y="409">• save(): JSON + route images</text>
+
+  <rect x="1290" y="500" rx="20" ry="20" width="420" height="140" fill="url(#identity)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="1312" y="537">IdentityRecord</text>
+  <text class="box-file" x="1312" y="564">внутри identity_manager.py</text>
+  <text class="box-text" x="1312" y="593">Галерея признаков, trajectory, observations, tracklets_count</text>
+  <text class="box-text" x="1312" y="617">distance_px, face/reid gallery, timestamps</text>
+
+  <rect x="1290" y="680" rx="20" ry="20" width="420" height="140" fill="url(#output)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="1312" y="717">Renderer</text>
+  <text class="box-file" x="1312" y="744">identity_gallery_tracking/renderer.py</text>
+  <text class="box-text" x="1312" y="773">draw_tracklet(): bbox, label, polyline, arrow</text>
+  <text class="box-text" x="1312" y="797">draw_dashboard(): FPS, tracklets, identified, REC</text>
+
+  <rect x="1290" y="860" rx="20" ry="20" width="420" height="180" fill="url(#output)" class="outline" filter="url(#shadow)"/>
+  <text class="box-title" x="1312" y="897">Итоговые артефакты</text>
+  <text class="box-file" x="1312" y="924">identity_tracking_output/...</text>
+  <text class="box-text" x="1312" y="953">• tracked video</text>
+  <text class="box-text" x="1312" y="977">• events.json</text>
+  <text class="box-text" x="1312" y="1001">• route PNG for each identity</text>
+
+  <path class="arrow" d="M300 335 L300 385" />
+  <path class="arrow" d="M300 605 L300 655" />
+  <path class="arrow" d="M300 815 L300 865" />
+  <path class="arrow" d="M510 495 L670 295" />
+  <path class="arrow" d="M510 495 L780 400" />
+  <path class="arrow" d="M510 495 L1020 400" />
+  <path class="arrow" d="M900 370 L900 400" />
+  <path class="arrow" d="M780 530 L780 690" />
+  <path class="arrow" d="M1020 530 L1020 690" />
+  <path class="arrow" d="M1130 800 L1290 340" />
+  <path class="arrow" d="M1130 780 L1290 750" />
+  <path class="arrow" d="M1500 460 L1500 500" />
+  <path class="arrow" d="M1500 640 L1500 680" />
+  <path class="arrow" d="M1500 820 L1500 860" />
+  <path class="soft-arrow" d="M890 1000 L910 1000" />
+
+  <rect x="570" y="42" rx="14" ry="14" width="190" height="42" fill="#ffffff" opacity="0.16"/>
+  <circle cx="592" cy="63" r="9" fill="#ffca28"/>
+  <text class="subtitle" x="610" y="69">app.py orchestrates</text>
+
+  <rect x="785" y="42" rx="14" ry="14" width="210" height="42" fill="#ffffff" opacity="0.16"/>
+  <circle cx="807" cy="63" r="9" fill="#42a5f5"/>
+  <text class="subtitle" x="825" y="69">vision features</text>
+
+  <rect x="1020" y="42" rx="14" ry="14" width="230" height="42" fill="#ffffff" opacity="0.16"/>
+  <circle cx="1042" cy="63" r="9" fill="#66bb6a"/>
+  <text class="subtitle" x="1060" y="69">tracklets = short memory</text>
+
+  <rect x="1275" y="42" rx="14" ry="14" width="235" height="42" fill="#ffffff" opacity="0.16"/>
+  <circle cx="1297" cy="63" r="9" fill="#ab47bc"/>
+  <text class="subtitle" x="1315" y="69">identity = long memory</text>
+
+  <rect x="1535" y="42" rx="14" ry="14" width="200" height="42" fill="#ffffff" opacity="0.16"/>
+  <circle cx="1557" cy="63" r="9" fill="#ff7043"/>
+  <text class="subtitle" x="1575" y="69">output artifacts</text>
+
+  <text class="label" x="540" y="470">создает компоненты</text>
+  <text class="label" x="842" y="387">bbox / ReID / face</text>
+  <text class="label" x="990" y="612">matching + prediction</text>
+  <text class="label" x="1172" y="537">готовые tracklets</text>
+  <text class="label" x="1172" y="768">visible tracklets</text>
+  <text class="label" x="1525" y="846">save session outputs</text>
+</svg>

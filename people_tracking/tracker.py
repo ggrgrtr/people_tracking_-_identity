@@ -57,6 +57,8 @@ def _blend_shape(old_shape, new_shape, momentum=0.92):
     return (momentum * old_shape + (1.0 - momentum) * new_shape).astype(np.float32)
 
 
+# IoU выступает как функци потерь помогая определить совпадение
+#  и оптимизировать расположение рамки
 class Track:
     def __init__(self, track_id, bbox, feature, color_hist, frame_shape, config):
         self.id = track_id
@@ -268,9 +270,12 @@ class Track:
             return -1.0
 
         weighted_scores = []
+        # добавляем в список косинусное сходство векторов признаков трека и детекции, умноженное на вес, который зависит от того, насколько мы уверены в идентичности трека
         if self.identity_feature is not None:
+            # умнажаем на болльшой коэффициент из-за долговременности и стабильности признака
             weighted_scores.append((cosine_similarity(self.identity_feature, feature), 2.8))
         if self.feature is not None:
+            # более свежий и короткий признак, меньший коэф
             weighted_scores.append((cosine_similarity(self.feature, feature), 1.9))
 
         bank_similarities = [
@@ -280,6 +285,10 @@ class Track:
         bank_similarities = [value for value in bank_similarities if value > -0.5]
         if bank_similarities:
             bank_similarities.sort(reverse=True)
+            # берем топ k наиболее похожих признаков из банка и усредняет их
+            # добавляя в общий список с небольшим весом
+            # так как они могут быть менее релевантными,
+            # но все же полезными для устойчивости к изменениям внешности
             top_k = bank_similarities[: max(1, self.config.identity_bank_topk)]
             weighted_scores.append((sum(top_k) / len(top_k), 1.4))
 
@@ -288,6 +297,8 @@ class Track:
 
         score_sum = sum(score * weight for score, weight in weighted_scores)
         weight_sum = sum(weight for _, weight in weighted_scores)
+        # возвращаем среднее сходство, взвешенное и объединенное признаками долговременной памяти и текущей детекции, 
+        # что позволяет более надежно оценивать сходство даже при изменении внешности или условиях съемки
         return score_sum / max(weight_sum, 1e-8)
 
     def best_color_similarity(self, color_hist):

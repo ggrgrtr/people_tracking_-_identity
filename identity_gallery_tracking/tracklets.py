@@ -62,7 +62,13 @@ def _blend_shape(old_shape, new_shape, momentum=0.92):
 
 # мат фильтр Калмана
 
+# Tracklet - это короткий трек, который живет в течение нескольких кадров
+# отвечает за поддержание непрерывности наблюдения за объектом
 
+#  не детектит людей сам и не выдает финальную долговременную identity
+# Его зона ответственности: создать tracklet, вести его между кадрами
+# сопоставлять detection с уже существующими треками
+# обновлять признаки и удалять потерянные или дублирующиеся треки
 class Tracklet:
     def __init__(
         self,
@@ -81,12 +87,14 @@ class Tracklet:
         self.kalman = self._create_kalman(bbox)
 
         self.predicted_bbox = clip_bbox(bbox, frame_shape)
+        # сглаживание рамки
         self.smooth_bbox = clip_bbox(bbox, frame_shape)
         self.path = deque([get_center(self.smooth_bbox)], maxlen=config.path_len)
 
         self.feature = feature.astype(np.float32) if feature is not None else None
         self.color_hist = color_hist.astype(np.float32) if color_hist is not None else None
         self.face_feature = face_feature.astype(np.float32) if face_feature is not None else None
+        # identity признаки это эмбендинги личностей, хранящиеся в долговременной памяти 
         self.identity_feature = self.feature.copy() if self.feature is not None else None
         self.identity_color_hist = self.color_hist.copy() if self.color_hist is not None else None
         self.identity_face_feature = self.face_feature.copy() if self.face_feature is not None else None
@@ -119,6 +127,8 @@ class Tracklet:
         # [cx, cy, w, h, vx, vy, vw, vh]
         #  первые 4 значения - положение и размер bbox
         # а последние 4 - их скорости
+
+        # Kalman использует эту структуру для прогнозирования будущего положения человека
         kalman = cv2.KalmanFilter(8, 4)
         #  как состояние меняется во времени
         kalman.transitionMatrix = np.array(
@@ -168,8 +178,7 @@ class Tracklet:
     def predict(self, frame_shape):
         prediction = self.kalman.predict().reshape(-1)
         self.age += 1
-        # Prediction продолжает жизнь tracklet между detect-pass, но не считается новым наблюдением.
-        self.observed_in_current_frame = False
+        # Prediction продолжает жизнь tracklet между detect-pass, но не считается новым наблюдением
         self.predicted_bbox = self._state_to_bbox(prediction, frame_shape)
         self.smooth_bbox = smooth_bbox(
             self.smooth_bbox,

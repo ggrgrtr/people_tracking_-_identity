@@ -13,8 +13,12 @@ import cv2
 import torch
 
 # из первого экземпляра программы берем детектор, определение признаков и сборщик
+
+# YOLO-детектор людей
 from people_tracking.detector import PersonDetector
+# ReID через ResNet50 + цветовые гистограммы
 from people_tracking.reid import AppearanceEncoder
+# утилиты для FPS, путей и источника видео
 from people_tracking.utils import RateMeter, build_output_paths, is_plausible_fps, resolve_source
 
 from .config import AppConfig
@@ -25,9 +29,12 @@ from .tracklets import TrackletTracker
 
 
 # для 1 объекта мониторинга камеры
+# читает кадры в отдельном потоке, чтобы тяжёлая обработка YOLO/ReID не блокировала cap.read()
 class ThreadedCameraCapture:
     def __init__(self, capture):
+        # сохраняем объект захвата видео
         self.capture = capture
+        # условие для синхронизации доступа к последнему кадру между потоками
         self.condition = threading.Condition()
         self.stopped = False
         self.read_failed = False
@@ -38,6 +45,7 @@ class ThreadedCameraCapture:
         self.last_consumed_seq = 0
         self.thread = None
 
+    # поднимаем поток для чтения кадров с камеры, который будет работать параллельно с основным потоком обработки видео, чтобы обеспечить более плавное и непрерывное чтение кадров, особенно при тяжелой обработке YOLO/ReID в основном потоке
     def start(self):
         if self.thread is not None:
             return self
@@ -51,15 +59,23 @@ class ThreadedCameraCapture:
             return None
         return self
 
+    # чтение кадров в цикле, обновление последнего кадра и его метки времени, а также управление состоянием остановки и ошибок чтения, чтобы обеспечить надежный потоковый захват кадров с камеры
+    
+    # Если кадр успешно прочитан, он сохраняет:
+    # latest_frame
+    # latest_timestamp
+    # увеличивает latest_seq для сигнализации о новом кадре
     def _reader(self):
         consecutive_failures = 0
         while not self.stopped:
             ok, frame = self.capture.read()
             timestamp = time.perf_counter()
+
             with self.condition:
                 if not ok:
                     consecutive_failures += 1
                     if consecutive_failures >= self.max_consecutive_failures:
+                        # Если чтение несколько раз подряд не удалось, считаем, что поток захвата сломался, и устанавливаем флаг read_failed, чтобы основной поток мог корректно завершиться
                         self.read_failed = True
                         self.stopped = True
                     self.condition.notify_all()
@@ -83,7 +99,7 @@ class ThreadedCameraCapture:
                 and self.latest_seq == self.last_consumed_seq
             ):
                 remaining = deadline - time.perf_counter()
-                if remaining <= 0.0:
+                if remaining <= 0:
                     break
                 self.condition.wait(timeout=min(0.05, remaining))
 
@@ -101,7 +117,7 @@ class ThreadedCameraCapture:
         if self.thread is not None:
             self.thread.join(timeout=1.0)
 
-
+# чтение аргументов командной строки
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Identity gallery tracking: tracklets + persistent person identities"
@@ -112,12 +128,15 @@ def parse_args():
     parser.add_argument("--no-display", action="store_true", help="Run without preview window")
     return parser.parse_args()
 
-
+# открытие камеры
 def open_capture(source, config):
+    # mp4v
+    # инт для лайфкамеры
     if isinstance(source, int):
         cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
         if not cap.isOpened():
             cap = cv2.VideoCapture(source)
+        # настройки отображения камеры из конфига: разрешение, буфер и FPS
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.camera_width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.camera_height)
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
@@ -136,15 +155,16 @@ def create_writer(path, fps, frame_shape):
 def main():
 
     # парсим аргументы командной строки
-#     --source
-# --save-output
-# --output
-# --no-display
+    #     --source
+    # --save-output
+    # --output
+    # --no-display
     args = parse_args()
 
     # создание объекта класса конфигурации приложения. все параметры и тд
     config = AppConfig()
     # создание identity_tracking_output, если не существует
+    # для сохранения видео, логов иы результатов трекинга, обеспечивая организацию выходных данных в одном месте
     config.output_dir.mkdir(parents=True, exist_ok=True)
 
     # путь к изоображению и подпись источника для отображения логов и имен файлов
@@ -164,6 +184,8 @@ def main():
     threaded_capture = None
 
 
+
+    # CОЗДАНИЕ ОБЪКТА КЛАССА ThreadedCameraCapture, который будет использоваться для многопоточного захвата кадров с камеры
     if is_live_source and config.threaded_camera_capture:
         # Для live-источника пытаемся отделить чтение камеры от тяжелой обработки кадров
         threaded_capture = ThreadedCameraCapture(cap).start()
@@ -171,11 +193,17 @@ def main():
             # Если среда не умеет поднимать потоки продолжаем в невыгодгом синхронном режиме 
             print("Warning: threaded camera capture is unavailable, using synchronous capture.")
 
+
+
+
     # переходим на GPU, если  есть. для ускорения детекции и ReID
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cuda":
         # разрешает библиотеке cuDNN подбирать наиболее быстрый алгоритм для сеток
         torch.backends.cudnn.benchmark = True
+
+
+
 
     # коренной путь для загрузки моделей, независимость от места загрузки
     base_dir = Path(__file__).resolve().parents[1]
@@ -183,8 +211,6 @@ def main():
     detector = PersonDetector(config, base_dir, device)
     # извдечение признаков с model = ResNet50ReIDBackbone
     encoder = AppearanceEncoder(config, device, base_dir)
-
-    
     # face embedding для дополнительного распознавания лиц, полностью опциональный бек
     # дополняет обычный ReID 
     face_backend = OptionalFaceBackend(config, base_dir)
@@ -222,6 +248,7 @@ def main():
 
     while True:
         if threaded_capture is not None:
+            # чтение кадра с камеры в отдельном потоке
             read_status, frame, read_complete_time = threaded_capture.read(timeout=1.0)
             if read_status == "timeout":
                 continue
@@ -392,3 +419,47 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+# создание объекта ThreadedCameraCapture для захвата изображения камеры
+# читаем логи с доп указаниями по запуску с parse_args()
+# добавляем конфигурацию с config = AppConfig()
+# импортируем конфиг с предопределенными параметрами для трекинга, детекции и ReID
+
+
+
+
+# создаем экземпляр класса AppearanceEncoder, который будет использоваться
+# для извлечения признаков и цветовых гистограмм из кадров видео, что позволяет идентифицировать и отслеживать людей на основе их внешнего вида.
+
+# в функции _build_model класса AppearanceEncoder создаем объект класса реснет50бэкбон
+# в нем создается модель реснет
+# backbone = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
+
+# создаем экземпляр класса с моделью и весами
+
+
+# загружаем чекпоинт (словарь состояния) с общей структурой модели из файла .pth
+# выделяем словарь весов в _extract_state_dict из вссего словаря
+# подстраивам и очищаем словарь весов от возможных префиксов и адаптируем ключи для начального блока реснет50 в _clean_state_dict, чтобы обеспечить совместимость с архитектурой модели
+# загружаем веса из сохраненного файла.pth
+# проверяем веса на совпадение с архитектурой модели
+# подгружаем новые нейронные слои к экземпляру модели в _load_specialized_weights
+
+
+
+# извлекаем кропы из кадров видео с _crop_person на основе координат bbox, добавляя паддинг для захвата контекста
+
+
+# создаем цветовой дескриптор для каждого кропа в _build_color_descriptor, который включает гистограмму оттенков и насыщенности в _compute_histogram, а также среднюю насыщенность и яркость
+
+
+
+
+# self.condition = threading.Condition() нужен, чтобы безопасно синхронизировать два потока:
+# фоновый поток _reader() читает кадры с камеры;
+# основной поток main() ждёт новый кадр через read()
+# Один поток кладёт новый кадр и будит второй; второй ждёт кадр и безопасно его забирает
+# Без Condition основной поток мог бы постоянно крутиться в цикле и проверять: “появился новый кадр или нет?” Это называется busy waiting 
+# _reader() читает кадры в цикле, обновляет self.latest_frame и self.latest_timestamp, а также увеличивает self.latest_seq для сигнализации о новом кадре. Он использует self.condition.notify_all(), чтобы разбудить основной поток, который может ждать нового кадра.
