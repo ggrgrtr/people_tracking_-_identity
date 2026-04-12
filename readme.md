@@ -10,7 +10,7 @@ python -m pip install -r requirements.txt
 
 1. Быстрый запуск
 
-& "C:\Users\Egor\AppData\Local\Programs\Python\Python312\python.exe" .\2.py
+& "C:\Users\Egor\AppData\Local\Programs\Python\Python312\python.exe" .\start.py
 
 
 

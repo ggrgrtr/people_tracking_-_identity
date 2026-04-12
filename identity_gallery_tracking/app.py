@@ -15,11 +15,11 @@ import torch
 # из первого экземпляра программы берем детектор, определение признаков и сборщик
 
 # YOLO-детектор людей
-from people_tracking.detector import PersonDetector
+from .detector import PersonDetector
 # ReID через ResNet50 + цветовые гистограммы
-from people_tracking.reid import AppearanceEncoder
+from .reid import AppearanceEncoder
 # утилиты для FPS, путей и источника видео
-from people_tracking.utils import RateMeter, build_output_paths, is_plausible_fps, resolve_source
+from .utils import RateMeter, build_output_paths, is_plausible_fps, resolve_source
 
 from .config import AppConfig
 from .face_backend import OptionalFaceBackend
@@ -347,7 +347,7 @@ def main():
 
         identity_manager.finalize_tracklets(finished_tracklets)
         visible_tracklets = tracker.visible_tracklets()
-        # В identity-логику передаем только реально наблюденные tracklet, а не prediction-only кадры.
+        # В identity-логику передаем только реально наблюденные tracklet, а не prediction-only кадры
         observed_tracklets = [track for track in visible_tracklets if track.was_observed()]
         identity_manager.observe_tracklets(
             observed_tracklets,

@@ -3,14 +3,14 @@ from collections import deque
 import cv2
 import numpy as np
 
-from people_tracking.assignment import UNMATCHED_COST, hungarian
-from people_tracking.reid import (
+from .assignment import UNMATCHED_COST, hungarian
+from .reid import (
     blend_feature,
     blend_histogram,
     color_similarity,
     cosine_similarity,
 )
-from people_tracking.utils import (
+from .utils import (
     append_path,
     bbox_area,
     bbox_from_center,
@@ -431,12 +431,14 @@ def _active_match_cost(track, det_box, feature, color_hist, face_feature, config
     return 10.0 - score
 
 
+# Ассоциация tracklet и detection - это ключевая часть трекера, которая влияет на его способность сохранять непрерывность треков и правильно определять объекты
 def _associate_tracklets(tracklets, detections, features, color_histograms, face_features, frame_shape, config):
     if not tracklets or not detections:
         return [], list(range(len(tracklets))), list(range(len(detections)))
 
-    # Hungarian assignment получает единую матрицу стоимости и выбирает глобально согласованное сопоставление.
-    # Это лучше жадного подхода, потому что жадный матч может "украсть" хорошую detection у более подходящего tracklet.
+    # Hungarian assignment получает единую матрицу стоимости и выбирает глобально согласованное сопоставление
+    # Это лучше жадного подхода, потому что жадный матч может "украсть" хорошую detection у более подходящего tracklet
+    # для каждой пары “существующий tracklet + новая detection” считается цена
     cost_matrix = np.full((len(tracklets), len(detections)), UNMATCHED_COST, dtype=np.float64)
 
     for track_index, track in enumerate(tracklets):
