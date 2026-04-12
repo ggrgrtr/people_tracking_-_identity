@@ -3,7 +3,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .reid import normalize_feature
+from people_tracking.reid import normalize_feature
 
 
 def _resolve_optional_model(base_dir, explicit_path, candidate_names):

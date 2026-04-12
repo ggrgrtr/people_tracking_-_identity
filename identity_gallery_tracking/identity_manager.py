@@ -6,13 +6,13 @@ from collections import deque
 import cv2
 import numpy as np
 
-from .reid import (
+from people_tracking.reid import (
     blend_feature,
     blend_histogram,
     color_similarity,
     cosine_similarity,
 )
-from .utils import get_center
+from people_tracking.utils import get_center
 
 
 def _shape_descriptor_from_bbox(bbox, frame_shape):
